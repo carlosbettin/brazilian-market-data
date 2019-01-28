@@ -8,5 +8,5 @@ setup(
     packages=['anbima_data'],
     author='Carlos Bettin',
     author_email='carlosalexandrebcar@gmail.com',
-    url=''
+    url='https://github.com/carlosbettin/brazilian-market-data'
 )
