@@ -6,6 +6,9 @@ import requests
 
 IMA_COMPLETO_URL = 'http://www.anbima.com.br/ima/arqs/ima_completo.xml'
 
+# This is only a part of the URL, it is necessary to add a date and .xml.
+CREDIT_URL_PREFIX = 'http://www.anbima.com.br/curvas_debentures/xml/CurvaDeb_'
+
 IMA_FIELD_MAP = {
     "Indice": {
         "T_Yield": "YLD",
@@ -22,7 +25,7 @@ IMA_FIELD_MAP = {
     }
 
 
-def _get_anbima_page(url):
+def _get_xml_page(url):
     """Connect to the Anbima webpage and return a BeautifulSoup xml object.
 
     Parameters
@@ -46,7 +49,14 @@ def _get_anbima_page(url):
 
 
 def _get_ima_completo_page():
-    soup = _get_anbima_page(IMA_COMPLETO_URL)
+    soup = _get_xml_page(IMA_COMPLETO_URL)
+    return soup
+
+
+def _get_credit_curve_page(dt_ref):
+    formated_dt_ref = datetime.strftime(dt_ref, "%d%m%Y")
+    url = CREDIT_URL_PREFIX + formated_dt_ref + '.xml'
+    soup = _get_xml_page(url)
     return soup
 
 
@@ -67,7 +77,7 @@ def get_ntnb_data():
     imab_carteira = imab.find_all("CARTEIRA")
     # loop in each tag.
     data = []
-    # imab_carteira[0]
+
     for tag in imab_carteira:
         tmp = {}
         imab_carteira[0]
@@ -89,5 +99,33 @@ def get_ntnb_data():
     return data
 
 
+def get_credit_data(dt_ref):
+    soup = _get_credit_curve_page(dt_ref)
+    # sort elements of xml by vertice
+    list_elements = soup.find_all('VERTICES')
+    # create empty list to append dictionaries with spreads and with yields
+    lst_of_dic = []
+    # loop for each vertice and fill the spread for each rating
+    for element in list_elements:
+        for rt in ["A", "AA", "AAA"]:
+            # convert comma to dot and append Y
+            vertice = "{}Y".format(element["Vertice"].replace(",", "."))
+            # name = "{r} {v}".format(r=rt, v=vertice)
+            # convert comma to dot, divide by 100 and round it to 8 digits
+            spread = round(float(element[rt].replace(",", "."))/100, 8)
+            diplus = round(float(element[rt+"_DI"].replace(",", "."))/100, 8)
+
+            lst_of_dic.append({
+                "name": rt,
+                'tenor': vertice,
+                "date": dt_ref,
+                "SPR": spread,
+                "DI1": diplus,
+            })
+
+    return lst_of_dic
+
+
 if __name__ == '__main__':
     get_ntnb_data()
+    get_credit_data(datetime(2018,1,29).date())
